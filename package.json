@@ -1,0 +1,41 @@
+{
+  "name": "n8n-nodes-message-buffer",
+  "version": "1.0.0",
+  "description": "n8n community node for message buffering",
+  "license": "MIT",
+  "author": "junforever",
+  "main": "dist/nodes/MessageBuffer/MessageBuffer.node.js",
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "n8n",
+    "n8n-community-node",
+    "message-buffer",
+    "redis"
+  ],
+  "scripts": {
+    "build": "tsc && gulp build:icons"
+  },
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [],
+    "nodes": [
+      "dist/nodes/MessageBuffer/MessageBuffer.node.js"
+    ]
+  },
+  "devDependencies": {
+    "@types/ioredis": "^4.28.10",
+    "@types/node": "^24.0.10",
+    "gulp": "^5.0.1",
+    "n8n-workflow": "^1.82.0",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "ioredis": "^5.2.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/junforever/n8n-nodes-message-buffer.git"
+  }
+}
