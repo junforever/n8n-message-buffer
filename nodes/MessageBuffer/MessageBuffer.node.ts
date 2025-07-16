@@ -7,12 +7,34 @@ import {
 import Redis from 'ioredis';
 
 const POLLING_SIGNAL_KEY = '__isPollingSignal__';
+type RedisClient = InstanceType<typeof Redis>;
+
+type RedisCredential = {
+  host: string;
+  port: number;
+  ssl?: boolean;
+  database: number;
+  user?: string;
+  password?: string;
+};
+
+function setupRedisClient(credentials: RedisCredential): RedisClient {
+  return new Redis({
+    host: credentials.host,
+    port: credentials.port,
+    tls: credentials.ssl ? {} : undefined,
+    db: credentials.database,
+    username: credentials.user || undefined,
+    password: credentials.password || undefined,
+    showFriendlyErrorStack: true,
+  });
+}
 
 export class MessageBuffer implements INodeType {
   description: INodeTypeDescription = {
     displayName: 'Message Buffer',
     name: 'messageBuffer',
-    icon: 'fa:comments',
+    icon: 'file:icon.svg',
     group: ['transform'],
     version: 1,
     description:
@@ -22,7 +44,7 @@ export class MessageBuffer implements INodeType {
     },
     inputs: ['main'] as unknown as any,
     outputs: ['main', 'main'] as unknown as any,
-    outputNames: ['Wait', 'Message Ready'],
+    outputNames: ['Message Ready', 'Wait'],
     credentials: [
       {
         name: 'redis',
@@ -49,6 +71,13 @@ export class MessageBuffer implements INodeType {
           'The field in the incoming JSON that contains the message text to buffer.',
       },
       {
+        displayName: 'Output Field Name',
+        name: 'outputFieldName',
+        type: 'string',
+        default: 'consolidatedMessage',
+        description: 'The name of the new field for the consolidated message.',
+      },
+      {
         displayName: 'Wait Time (seconds)',
         name: 'waitTime',
         type: 'number',
@@ -69,9 +98,18 @@ export class MessageBuffer implements INodeType {
     ) as string;
     const messageField = this.getNodeParameter('messageField', 0) as string;
     const waitTime = this.getNodeParameter('waitTime', 0) as number;
+    const outputFieldName = this.getNodeParameter(
+      'outputFieldName',
+      0,
+      'consolidatedMessage',
+    ) as string;
 
     const credentials = await this.getCredentials('redis');
-    const redis = new Redis(credentials as any);
+    if (!credentials) {
+      throw new Error('Redis credentials are not configured for this node.');
+    }
+
+    const redis = setupRedisClient(credentials as RedisCredential);
 
     const items = this.getInputData();
     const returnDataWait: INodeExecutionData[] = [];
@@ -96,13 +134,12 @@ export class MessageBuffer implements INodeType {
 
             const newJson = { ...item.json };
             delete newJson[POLLING_SIGNAL_KEY];
-            newJson[messageField] = consolidatedMessage;
+            newJson[outputFieldName] = consolidatedMessage;
             newJson.allMessages = messages;
 
             const newItem: INodeExecutionData = {
               json: newJson,
               binary: item.binary,
-              pairedItem: item.pairedItem,
             };
 
             returnDataMessageReady.push(newItem);
@@ -123,7 +160,6 @@ export class MessageBuffer implements INodeType {
               [POLLING_SIGNAL_KEY]: true,
             },
             binary: item.binary,
-            pairedItem: item.pairedItem,
           };
           returnDataWait.push(pollingItem);
         }
@@ -140,6 +176,9 @@ export class MessageBuffer implements INodeType {
       await redis.quit();
     }
 
-    return [returnDataWait, returnDataMessageReady];
+    return [
+      this.helpers.returnJsonArray(returnDataMessageReady),
+      this.helpers.returnJsonArray(returnDataWait),
+    ];
   }
 }
