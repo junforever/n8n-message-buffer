@@ -145,24 +145,31 @@ export class MessageBuffer implements INodeType {
             returnDataMessageReady.push(newItem);
 
             await redis.del(dataKey);
+          } else {
+            const newItem: INodeExecutionData = {
+              json: {
+                ...item.json,
+                [outputFieldName]: '',
+              },
+              binary: item.binary,
+            };
+            returnDataMessageReady.push(newItem);
           }
         }
       } else {
-        const messageText = item.json[messageField];
-
-        if (typeof messageText === 'string' && messageText.trim() !== '') {
-          await redis.rpush(dataKey, messageText);
+        if (messageField.trim() !== '') {
+          await redis.rpush(dataKey, messageField);
 
           await redis.set(timerKey, '1', 'EX', waitTime);
-          const pollingItem: INodeExecutionData = {
-            json: {
-              ...item.json,
-              [POLLING_SIGNAL_KEY]: true,
-            },
-            binary: item.binary,
-          };
-          returnDataWait.push(pollingItem);
         }
+        const pollingItem: INodeExecutionData = {
+          json: {
+            ...item.json,
+            [POLLING_SIGNAL_KEY]: true,
+          },
+          binary: item.binary,
+        };
+        returnDataWait.push(pollingItem);
       }
     } catch (error) {
       if (this.continueOnFail()) {
