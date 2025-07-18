@@ -38,13 +38,13 @@ export class MessageBuffer implements INodeType {
     group: ['transform'],
     version: 1,
     description:
-      'Buffers messages for a set time to consolidate them into one. Uses a polling loop.',
+      'Buffers messages for a set time to consolidate them into one. Uses a polling loop. ⚠️ Do not connect anything to the "Discarded" output — it is for internal use only⚠️ .',
     defaults: {
       name: 'Message Buffer',
     },
     inputs: ['main'] as unknown as any,
-    outputs: ['main', 'main'] as unknown as any,
-    outputNames: ['Message Ready', 'Wait'],
+    outputs: ['main', 'main', 'main'] as unknown as any,
+    outputNames: ['Message Ready', 'Wait', 'Discarded'],
     credentials: [
       {
         name: 'redis',
@@ -114,6 +114,7 @@ export class MessageBuffer implements INodeType {
     const items = this.getInputData();
     const returnDataWait: INodeExecutionData[] = [];
     const returnDataMessageReady: INodeExecutionData[] = [];
+    const returnDataDiscarded: INodeExecutionData[] = [];
 
     const dataKey = `msg:${conversationKey}`;
     const timerKey = `timer:${conversationKey}`;
@@ -146,14 +147,7 @@ export class MessageBuffer implements INodeType {
 
             await redis.del(dataKey);
           } else {
-            const newItem: INodeExecutionData = {
-              json: {
-                ...item.json,
-                [outputFieldName]: '',
-              },
-              binary: item.binary,
-            };
-            returnDataMessageReady.push(newItem);
+            returnDataDiscarded.push(item);
           }
         }
       } else {
@@ -161,15 +155,17 @@ export class MessageBuffer implements INodeType {
           await redis.rpush(dataKey, messageField);
 
           await redis.set(timerKey, '1', 'EX', waitTime);
+          const pollingItem: INodeExecutionData = {
+            json: {
+              ...item.json,
+              [POLLING_SIGNAL_KEY]: true,
+            },
+            binary: item.binary,
+          };
+          returnDataWait.push(pollingItem);
+        } else {
+          returnDataDiscarded.push(item);
         }
-        const pollingItem: INodeExecutionData = {
-          json: {
-            ...item.json,
-            [POLLING_SIGNAL_KEY]: true,
-          },
-          binary: item.binary,
-        };
-        returnDataWait.push(pollingItem);
       }
     } catch (error) {
       if (this.continueOnFail()) {
@@ -186,6 +182,7 @@ export class MessageBuffer implements INodeType {
     return [
       this.helpers.returnJsonArray(returnDataMessageReady),
       this.helpers.returnJsonArray(returnDataWait),
+      this.helpers.returnJsonArray(returnDataDiscarded),
     ];
   }
 }

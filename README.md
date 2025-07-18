@@ -57,11 +57,17 @@ First, you'll need to configure your Redis credentials. Select the corresponding
 
 ### Outputs
 
-The node has two outputs:
+The node has three outputs:
 
 1. **wait**: This output is used to manage the polling loop. It sends a signal that should be used to re-trigger the node after a short delay.
 
 2. **messageReady**: Once the wait time has passed without new messages, this output will emit a single item containing the consolidated message. The final text is available in the field specified by the Message Field parameter.
+
+3. **discarded**: Its purpose is to support **internal control and traceability** by clearly separating cases that should not impact the agent flow. This output is triggered only for executions that **do not meet the minimum requirements** to be processed, such as:
+   - Empty or malformed message content.
+   - Events with no messages available for consolidation.
+
+> ⚠️ **Important:** Do not connect any actionable nodes to this output. It is designed solely for debugging, logging, or analysis. You may leave it unconnected or route it to lightweight nodes such as `No Operation` or `Set` if you wish to monitor discarded executions.
 
 ## ⚠️ Crucial Setup: The Polling Loop
 
