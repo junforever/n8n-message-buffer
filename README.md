@@ -10,6 +10,14 @@ User Message 3: and its products
 
 This can confuse AI agents, as they process each message as a separate request. The Message Buffer node intelligently waits and consolidates these fragments into a single, coherent message before passing it on.
 
+## ⚠️ Very Important: Testing the Node
+
+To properly test the Message Buffer node, your n8n workflow **must be active**.
+
+If you try to test it using the "Test workflow" button, it will only capture a single message. This is because test executions run only once, whereas an active workflow runs continuously, allowing the node to listen for and buffer multiple messages as intended.
+
+Always activate your workflow to see the node working correctly.
+
 ## How It Works
 
 The node uses a Redis backend and a smart polling loop to achieve this without blocking the n8n workflow.
